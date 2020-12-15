@@ -1,0 +1,171 @@
+/* eslint-disable react-native/no-inline-styles */
+import React, {useCallback, useRef} from 'react';
+import {
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  View,
+  TextInput,
+  Alert,
+} from 'react-native';
+
+import Icon from 'react-native-vector-icons/Feather';
+import {useNavigation} from '@react-navigation/native';
+import {useAuth} from '../../hooks/auth';
+import {Form} from '@unform/mobile';
+import {FormHandles} from '@unform/core';
+import * as Yup from 'yup';
+import getValidationErrors from '../../utils/getValidationError';
+import SocialButton from '../../components/SocialButton';
+
+import Input from '../../components/Input';
+import Button from '../../components/Button';
+
+import {
+  Title,
+  Container,
+  BackToSignIn,
+  BackToSignInText,
+  SocialButtonsContainer,
+} from './styles';
+import {defaultTheme} from '../../styles/theme';
+
+interface SignUpFormData {
+  email: string;
+  password: string;
+}
+
+const SignUp: React.FC = () => {
+  const formRef = useRef<FormHandles>(null);
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+  const {signUp, signInWithGoogle} = useAuth();
+
+  const navigation = useNavigation();
+
+  const handleSignUp = useCallback(
+    async (data: SignUpFormData) => {
+      try {
+        formRef.current?.setErrors({});
+
+        const schema = Yup.object().shape({
+          email: Yup.string()
+            .required('E-mail obrigatório')
+            .email('Digite um e-mail válido'),
+          password: Yup.string().required('Senha obrigatória'),
+        });
+
+        await schema.validate(data, {
+          abortEarly: false,
+        });
+
+        await signUp(data.email, data.password);
+
+        navigation.navigate('SignIn');
+
+        Alert.alert(
+          'Cadastro realizado com sucesso!',
+          'Você já pode fazer login na aplicação.',
+        );
+      } catch (err) {
+        if (err instanceof Yup.ValidationError) {
+          const errors = getValidationErrors(err);
+
+          formRef.current?.setErrors(errors);
+
+          return;
+        }
+
+        Alert.alert(
+          'Erro ao registrar usuário',
+          'Erro ao registrar usuário, cadastro já existente',
+        );
+      }
+    },
+    [navigation, signUp],
+  );
+
+  return (
+    <KeyboardAvoidingView
+      style={{flex: 1}}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      enabled>
+      <ScrollView
+        contentContainerStyle={{flex: 1}}
+        keyboardShouldPersistTaps="handled">
+        <Container>
+          <View>
+            <Title>Crie sua conta</Title>
+          </View>
+
+          <Form ref={formRef} onSubmit={handleSignUp} style={{width: '100%'}}>
+            <Input
+              ref={emailInputRef}
+              autoCorrect={false}
+              autoCapitalize="none"
+              placeholder="E-mail"
+              name="email"
+              icon="mail"
+              keyboardType="email-address"
+              returnKeyType="next"
+              onSubmitEditing={() => {
+                passwordInputRef.current?.focus();
+              }}
+            />
+
+            <Input
+              ref={passwordInputRef}
+              placeholder="Senha"
+              name="password"
+              icon="lock"
+              secureTextEntry
+              returnKeyType="send"
+              onSubmitEditing={() => {
+                formRef.current?.submitForm();
+              }}
+              textContentType="newPassword"
+            />
+
+            <Button
+              onPress={() => {
+                formRef.current?.submitForm();
+              }}>
+              Criar conta
+            </Button>
+          </Form>
+
+          <SocialButtonsContainer>
+            <SocialButton
+              iconType="font-awesome"
+              buttonTitle="Entrar com o Google"
+              btnType="google"
+              color="#de4d41"
+              backgroundColor="#f5e7ea"
+              onPress={() => signInWithGoogle()}
+            />
+
+            <SocialButton
+              iconType="feather"
+              buttonTitle="Entrar com o Telefone"
+              btnType="phone"
+              color="#617feb"
+              backgroundColor="#e7eaf5"
+              onPress={() => navigation.navigate('PhoneSignIn')}
+            />
+          </SocialButtonsContainer>
+
+          <BackToSignIn onPress={() => navigation.goBack()}>
+            <Icon
+              name="arrow-left"
+              size={20}
+              color={defaultTheme.colors.white}
+            />
+            <BackToSignInText>Voltar para logon</BackToSignInText>
+          </BackToSignIn>
+        </Container>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+};
+
+export default SignUp;
